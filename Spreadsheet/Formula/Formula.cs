@@ -17,14 +17,14 @@ using System.Text.RegularExpressions;
 
 /// <summary>
 /// <para>
-/// This class represents formulas written in standard infix notation using  standard precedence
-/// rules. The allowed symbols are non-negative numbers written using double-  precision
-/// floating-point syntax; variables that consist of one or more letters  followed by
-/// one or more numbers; parentheses; and the four operator symbols +, -, *,  and /.
+/// This class represents formulas written in standard infix notation using standard precedence
+/// rules. The allowed symbols are non-negative numbers written using double-precision
+/// floating-point syntax; variables that consist of one or more letters followed by
+/// one or more numbers; parentheses; and the four operator symbols +, -, *, and /.
 /// </para>
 /// <para>
 /// Spaces are significant only insofar that they delimit tokens. For example, "xy" is
-/// a single variable, "x y" consists of two variables "x" and y; "x23" is a  single variable;
+/// a single variable, "x y" consists of two variables "x" and y; "x23" is a single variable;
 /// and "x 23" consists of a variable "x" and a number "23". Otherwise, spaces are to be removed.
 /// </para>
 /// <para>
@@ -51,6 +51,16 @@ public class Formula
     private const string VariableRegExPattern = @"[a-zA-Z]+\d+";
 
     /// <summary>
+    /// Puts the orginal unpasred string into the constructor
+    /// </summary>
+    private readonly string rawFormulaString;
+
+    /// <summary>
+    ///Stores the string representation of the formula so it can run the O(1) time compexity of ToString()
+    /// </summary>
+    private readonly string normalizedFormulaString;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Formula"/> class.
     /// <para>
     /// Creates a Formula from a string that consists of an infix expression written as
@@ -58,28 +68,139 @@ public class Formula
     /// throws a FormulaFormatException with an explanatory Message. See the assignment
     /// specifications for the syntax rules you are to implement.
     /// </para>
-    /// <para>
-    /// Non-Exhaustive Example Errors:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>
-    /// Invalid variable name, e.g., x, x1x (Note: x1 is valid, but would be normalized to X1)
-    /// </item>
-    /// <item>
-    /// Empty formula, e.g., string.Empty
-    /// </item>
-    /// <item>
-    /// Mismatched Parentheses, e.g., "(("
-    /// </item>
-    /// <item>
-    /// Invalid Following Rule, e.g., "2x+5"
-    /// </item>
-    /// </list>
     /// </summary>
     /// <param name="formula"> The string representation of the formula to be created.</param>
     public Formula(string formula)
     {
-// FIXME: implement your code here
+        List<string> parsedTokens = GetTokens(formula);
+         // Rule 1
+        if (parsedTokens.Count == 0)
+        {
+            throw new FormulaFormatException("Formula string cannot be empty.");
+        }
+        // Rule 5
+        string startToken = parsedTokens[0];
+        bool startIsNum = double.TryParse(startToken, out _);
+        bool startIsVar = IsVar(startToken);
+
+        if (startIsNum == false && startIsVar == false && startToken != "(")
+        {
+            throw new FormulaFormatException("First token must be a number, variable, or '('.");
+        }
+         // Rule 6
+        string endToken = parsedTokens[parsedTokens.Count - 1];
+        bool endIsNum = double.TryParse(endToken, out _);
+        bool endIsVar = IsVar(endToken);
+
+        if (endIsNum == false && endIsVar == false && endToken != ")")
+        {
+            throw new FormulaFormatException("Last token must be a number, variable, or ')'.");
+        }
+
+        int leftParenCount = 0;
+        int rightParenCount = 0;
+        string canonicalBuilder = "";
+
+        // Goes over the tokens to check if there correct 
+        for (int idx = 0; idx < parsedTokens.Count; idx++)
+        {
+            string element = parsedTokens[idx];
+            bool isNumber = double.TryParse(element, out double numericValue);
+            bool isVariable = IsVar(element);
+            bool isOperator = false;
+
+            if (element == "+" || element == "-" || element == "*" || element == "/")
+            {
+                isOperator = true;
+            }
+            // Rule 2
+            if (isNumber == false)
+            {
+                if (isVariable == false)
+                {
+                    if (isOperator == false)
+                    {
+                        if (element != "(" && element != ")")
+                        {
+                            throw new FormulaFormatException($"Invalid token found: {element}");
+                        }
+                    }
+                }
+            }
+            // Rules 3 & 4
+            if (element == "(")
+            {
+                leftParenCount++;
+            }
+            else if (element == ")")
+            {
+                rightParenCount++;
+                if (rightParenCount > leftParenCount)
+                {
+                    throw new FormulaFormatException("Closing parenthesis count cannot exceed opening count.");
+                }
+            }
+
+            // Rules 7 & 8
+            if (idx + 1 < parsedTokens.Count)
+            {
+                string nextElement = parsedTokens[idx + 1];
+                bool nextIsNum = double.TryParse(nextElement, out _);
+                bool nextIsVar = IsVar(nextElement);
+
+                // Rule 7
+                if (element == "(" || isOperator == true)
+                {
+                    if (nextIsNum == false)
+                    {
+                        if (nextIsVar == false)
+                        {
+                            if (nextElement != "(")
+                            {
+                                throw new FormulaFormatException("Operator or '(' must be followed by a number, variable, or '('.");
+                            }
+                        }
+                    }
+                }
+                // Rule 8
+                if (isNumber || isVariable || element == ")")
+                {
+                    bool nextIsOp = false;
+                    if (nextElement == "+" || nextElement == "-" || nextElement == "*" || nextElement == "/")
+                    {
+                        nextIsOp = true;
+                    }
+
+                    if (!nextIsOp && nextElement != ")")
+                    {
+                        throw new FormulaFormatException("Number, variable, or ')' must be followed by an operator or ')'.");
+                    }
+                }
+            }
+
+            // Makes the token valid
+            if (isNumber)
+            {
+                canonicalBuilder += numericValue.ToString();
+            }
+            else if (isVariable)
+            {
+                canonicalBuilder += element.ToUpper();
+            }
+            else
+            {
+                canonicalBuilder += element;
+            }
+        }
+
+        // Rule 4: Balanced Parentheses Check
+        if (leftParenCount != rightParenCount)
+        {
+            throw new FormulaFormatException("Total count of opening and closing parentheses must be equal.");
+        }
+
+        this.rawFormulaString = formula;
+        this.normalizedFormulaString = canonicalBuilder;
     }
 
     /// <summary>
@@ -92,16 +213,22 @@ public class Formula
     /// Variables should be returned in canonical form, having all letters converted
     /// to uppercase.
     /// </remarks>
-    /// <list type="bullet">
-    /// <item>new("x1+y1*z1").GetVariables() should return a set containing"X1", "Y1", and "Z1".</item>
-    /// <item>new("x1+X1" ).GetVariables() should return a set containing"X1".</item>
-    /// </list>
     /// </summary>
     /// <returns> the set of variables (string names) representing the variables referenced by the formula. </returns>
     public ISet<string> GetVariables()
     {
-// FIXME: implement your code here
-        return new HashSet<string>();
+        HashSet<string> uniqueVariables = new HashSet<string>();
+        List<string> allTokens = GetTokens(this.rawFormulaString);
+
+        foreach (string item in allTokens)
+        {
+            if (IsVar(item))
+            {
+                uniqueVariables.Add(item.ToUpper());
+            }
+        }
+
+        return uniqueVariables;
     }
 
     /// <summary>
@@ -112,25 +239,7 @@ public class Formula
     /// The string will contain no spaces.
     /// </para>
     /// <para>
-    /// If the string is passed to the Formula constructor, the new Formula f
-    /// will be such that this.ToString() == f.ToString().
-    /// </para>
-    /// <para>
-    /// All the variable and number tokens in the string will be normalized.
-    /// For numbers, this means that the original string token is converted to
-    /// a number using double.Parse or double.TryParse, then converted back to a
-    /// string using double.ToString.
-    /// For variables, this means all letters are uppercased.
-    /// </para>
-    /// <para>
-    /// For example:
-    /// </para>
-    /// <code>
-    /// new("x1 + Y1").ToString() should return "X1+Y1"
-    /// new("x1 + 5.0000").ToString() should return "X1+5".
-    /// </code>
-    /// <para>
-    /// This method should execute in O(1) time.
+    /// This method executes in O(1) time.
     /// </para>
     /// </summary>
     /// <returns>
@@ -139,8 +248,7 @@ public class Formula
     /// </returns>
     public override string ToString()
     {
-// FIXME: add your code here.
-        return string.Empty;
+        return this.normalizedFormulaString;
     }
 
     /// <summary>
@@ -151,7 +259,6 @@ public class Formula
     /// <returns> true if the string matches the requirements, e.g., A1 or a1. </returns>
     private static bool IsVar(string token)
     {
-// notice the use of ^ and $ to denote that the entire string being matched  is just the variable
         string standaloneVarPattern = $"^{VariableRegExPattern}$";
         return Regex.IsMatch(token, standaloneVarPattern);
     }
@@ -159,20 +266,6 @@ public class Formula
     /// <summary>
     /// <para>
     /// Given an expression, enumerates the tokens that compose it.
-    /// </para>
-    /// <para>
-    /// Tokens returned are:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>left paren</item>
-    /// <item>right paren</item>
-    /// <item>one of the four operator symbols</item>
-    /// <item>a string consisting of one or more letters followed by one or more numbers</item>
-    /// <item>a double literal</item>
-    /// <item>and anything that doesn't match one of the above patterns</item>
-    /// </list>
-    /// <para>
-    /// There are no empty tokens; white space is ignored (except to separate other tokens).
     /// </para>
     /// </summary>
     /// <param name="formula"> A string representing an infix formula such as 1*B1/3.0. </param>
@@ -183,16 +276,14 @@ public class Formula
         string lpPattern = @"\(";
         string rpPattern = @"\)";
         string opPattern = @"[\+\-*/]";
-        string doublePattern = @"(?: \d+\.\d* | \d*\.\d+ | \d+ ) (?: [eE][\+-]?
-\d+)?";
+        string doublePattern = @"(?: \d+\.\d* | \d*\.\d+ | \d+ ) (?: [eE][\+-]?\d+)?";
         string spacePattern = @"\s+";
-// Overall pattern
+
         string pattern = string.Format(
-            "({0}) | ({1}) | ({2}) | ({3}) | ({4}) | ({5})", lpPattern, rpPattern, opPattern, VariableRegExPattern,
-            doublePattern, spacePattern);
-// Enumerate matching tokens that don't consist solely of white space.
-        foreach (string s in Regex.Split(formula, pattern,
-                     RegexOptions.IgnorePatternWhitespace))
+            "({0}) | ({1}) | ({2}) | ({3}) | ({4}) | ({5})", 
+            lpPattern, rpPattern, opPattern, VariableRegExPattern, doublePattern, spacePattern);
+
+        foreach (string s in Regex.Split(formula, pattern, RegexOptions.IgnorePatternWhitespace))
         {
             if (!Regex.IsMatch(s, @"^\s*$", RegexOptions.Singleline))
             {
@@ -211,14 +302,10 @@ public class FormulaFormatException : Exception
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="FormulaFormatException"/> class.
-    /// <para>
-    /// Constructs a FormulaFormatException containing the explanatory message.
-    /// </para>
     /// </summary>
     /// <param name="message"> A developer defined message describing why the exception occured.</param>
     public FormulaFormatException(string message)
         : base(message)
     {
-// All this does is call the base constructor. No extra code needed.
     }
 }
