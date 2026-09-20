@@ -5,6 +5,8 @@
 // (Clarified meaning of dependent and dependee)
 // (Clarified names in solution/project structure)
 // Version 1.3 - H. James de St. Germain Fall 2024
+// Version 1.4 - Kyle Maher & CS3500 Staff
+// Date: September 19, 2026
 namespace DependencyGraph;
 /// <summary>
 /// <para>
@@ -119,19 +121,20 @@ public class DependencyGraph
         if (nodes.ContainsKey(nodeName))
         {
             Node node = nodes[nodeName];
+            List<Node> dependentsList = new List<Node>(node.Dependents);
             List<string> result = new List<string>();
-
-            foreach (Node dependentNode in node.Dependents)
+            for (int i = 0; i < dependentsList.Count; i++)
             {
+                Node dependentNode = dependentsList[i];
                 result.Add(dependentNode.Name);
             }
             return result;
         }
 
         return new List<string>();
-    }
+        }
 
-    /// <summary>
+        /// <summary>
     /// <para>
     /// Returns the dependees of the node with the given name.
     /// </para>
@@ -143,10 +146,11 @@ public class DependencyGraph
         if (nodes.ContainsKey(nodeName))
         {
             Node node = nodes[nodeName];
+            List<Node> dependeesList = new List<Node>(node.Dependees);
             List<string> result = new List<string>();
-
-            foreach (Node dependeeNode in node.Dependees)
+            for (int i = 0; i < dependeesList.Count; i++)
             {
+                Node dependeeNode = dependeesList[i];
                 result.Add(dependeeNode.Name);
             }
             return result;
@@ -214,14 +218,12 @@ public class DependencyGraph
         newDependents)
     {
         List<string> currentDependents = new List<string>(GetDependents(nodeName));
-
         for (int i = 0; i < currentDependents.Count; i++)
         {
             string dependent = currentDependents[i];
             RemoveDependency(nodeName, dependent);
         }
         List<string> newDependentsList = new List<string>(newDependents);
-
         for (int i = 0; i < newDependentsList.Count; i++)
         {
             string newDependent = newDependentsList[i];
@@ -253,13 +255,12 @@ public class DependencyGraph
             AddDependency(newDependee, nodeName);
         }
     }
-
+    //Method for baseline for node with name and connecting dependents and dependees
     private class Node
     {
         public string Name { get; }
         public HashSet<Node> Dependents { get; }
         public HashSet<Node> Dependees { get; }
-
         public Node(string name)
         {
             Name = name;
@@ -267,7 +268,7 @@ public class DependencyGraph
             Dependees = new HashSet<Node>();
         }
     }
-
+    //Get the node and if one does not exist it will then create a node
     private Node GetOrCreateNode(string name)
     {
         if (nodes.ContainsKey(name))
