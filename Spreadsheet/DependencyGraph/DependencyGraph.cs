@@ -51,12 +51,16 @@ namespace DependencyGraph;
 /// </summary>
 public class DependencyGraph
 {
+    private Dictionary<string, Node> nodes;
+    private int size;
     /// <summary>
     /// Initializes a new instance of the <see cref="DependencyGraph"/> class.
     /// The initial DependencyGraph is empty.
     /// </summary>
     public DependencyGraph()
     {
+        nodes = new Dictionary<string, Node>();
+        size = 0;
     }
 
     /// <summary>
@@ -64,7 +68,7 @@ public class DependencyGraph
     /// </summary>
     public int Size
     {
-        get { return 0; }
+        get { return size; }
     }
 
     /// <summary>
@@ -75,6 +79,12 @@ public class DependencyGraph
     /// <returns> true if the node has dependents. </returns>
     public bool HasDependents(string nodeName)
     {
+        if (nodes.ContainsKey(nodeName))
+        {
+            Node node = nodes[nodeName];
+            return node.Dependents.Count > 0;
+        }
+
         return false;
     }
 
@@ -86,6 +96,14 @@ public class DependencyGraph
     /// <param name="nodeName">The name of the node.</param>
     public bool HasDependees(string nodeName)
     {
+        if (nodes.ContainsKey(nodeName))
+        {
+            Node node = nodes[nodeName];
+            if (node.Dependees.Count > 0)
+            {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -98,7 +116,19 @@ public class DependencyGraph
     /// <returns> The dependents of nodeName. </returns>
     public IEnumerable<string> GetDependents(string nodeName)
     {
-        return new List<string>(); // Choose your own data structure
+        if (nodes.ContainsKey(nodeName))
+        {
+            Node node = nodes[nodeName];
+            List<string> result = new List<string>();
+
+            foreach (Node dependentNode in node.Dependents)
+            {
+                result.Add(dependentNode.Name);
+            }
+            return result;
+        }
+
+        return new List<string>();
     }
 
     /// <summary>
@@ -110,7 +140,18 @@ public class DependencyGraph
     /// <returns> The dependees of nodeName. </returns>
     public IEnumerable<string> GetDependees(string nodeName)
     {
-        return new List<string>(); // Choose your own data structure
+        if (nodes.ContainsKey(nodeName))
+        {
+            Node node = nodes[nodeName];
+            List<string> result = new List<string>();
+
+            foreach (Node dependeeNode in node.Dependees)
+            {
+                result.Add(dependeeNode.Name);
+            }
+            return result;
+        }
+        return new List<string>();
     }
 
     /// <summary>
@@ -127,6 +168,13 @@ public class DependencyGraph
 
     public void AddDependency(string dependee, string dependent)
     {
+        Node sNode = GetOrCreateNode(dependee);
+        Node tNode = GetOrCreateNode(dependent);
+        if (sNode.Dependents.Add(tNode))
+        {
+            tNode.Dependees.Add(sNode);
+            size++;
+        }
     }
 
     /// <summary>
@@ -140,6 +188,19 @@ public class DependencyGraph
 
     public void RemoveDependency(string dependee, string dependent)
     {
+        if (nodes.ContainsKey(dependee))
+        {
+            if (nodes.ContainsKey(dependent))
+            {
+                Node sNode = nodes[dependee];
+                Node tNode = nodes[dependent];
+                if (sNode.Dependents.Remove(tNode))
+                {
+                    tNode.Dependees.Remove(sNode);
+                    size--;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -152,6 +213,20 @@ public class DependencyGraph
     public void ReplaceDependents(string nodeName, IEnumerable<string>
         newDependents)
     {
+        List<string> currentDependents = new List<string>(GetDependents(nodeName));
+
+        for (int i = 0; i < currentDependents.Count; i++)
+        {
+            string dependent = currentDependents[i];
+            RemoveDependency(nodeName, dependent);
+        }
+        List<string> newDependentsList = new List<string>(newDependents);
+
+        for (int i = 0; i < newDependentsList.Count; i++)
+        {
+            string newDependent = newDependentsList[i];
+            AddDependency(nodeName, newDependent);
+        }
     }
     /// <summary>
     /// <para>
@@ -164,6 +239,44 @@ public class DependencyGraph
     /// <param name="newDependees"> The new dependees for nodeName</param>
     public void ReplaceDependees(string nodeName, IEnumerable<string> newDependees)
     {
+        List<string> currentDependees = new List<string>(GetDependees(nodeName));
+
+        for (int i = 0; i < currentDependees.Count; i++)
+        {
+            string dependee = currentDependees[i];
+            RemoveDependency(dependee, nodeName);
+        }
+        List<string> newDependeesList = new List<string>(newDependees);
+        for (int i = 0; i < newDependeesList.Count; i++)
+        {
+            string newDependee = newDependeesList[i];
+            AddDependency(newDependee, nodeName);
+        }
     }
 
+    private class Node
+    {
+        public string Name { get; }
+        public HashSet<Node> Dependents { get; }
+        public HashSet<Node> Dependees { get; }
+
+        public Node(string name)
+        {
+            Name = name;
+            Dependents = new HashSet<Node>();
+            Dependees = new HashSet<Node>();
+        }
+    }
+
+    private Node GetOrCreateNode(string name)
+    {
+        if (nodes.ContainsKey(name))
+        {
+            return nodes[name];
+        }
+        Node newNode = new Node(name);
+        nodes[name] = newNode;
+        return newNode;
+    }
+    
 }
